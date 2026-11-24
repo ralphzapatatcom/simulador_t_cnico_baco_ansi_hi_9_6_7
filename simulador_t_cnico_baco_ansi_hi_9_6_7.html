@@ -1,0 +1,1791 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Técnico ANSI/HI 9.6.7 — Ábaco de Corrección por Viscosidad</title>
+  <style>
+    /* ==========================================================================
+       SISTEMA DE DISEÑO INDUSTRIAL SCADA / INGENIERÍA (AUTOCONTENIDO)
+       Optimizado para 360 Extreme Browser y pantallas de escritorio/tablet
+       ========================================================================== */
+    :root {
+      --bg-base: #0b1120;
+      --bg-panel: #111827;
+      --bg-card: #1e293b;
+      --bg-input: #0f172a;
+      --border-subtle: #334155;
+      --border-strong: #475569;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-cyan: #06b6d4;
+      --accent-cyan-glow: rgba(6, 182, 212, 0.25);
+      --accent-amber: #f59e0b;
+      --accent-amber-glow: rgba(245, 158, 11, 0.25);
+      --accent-emerald: #10b981;
+      --accent-rose: #ef4444;
+      --accent-violet: #8b5cf6;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.45;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ==========================================================================
+       BARRA SUPERIOR DE ESTADO Y CONTROLES GLOBALES
+       ========================================================================== */
+    .topbar {
+      background: linear-gradient(90deg, #0f172a 0%, #172033 100%);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 12px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .brand-title h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: var(--text-primary);
+    }
+
+    .brand-title p {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .topbar-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .preset-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      padding: 5px 10px;
+      border-radius: var(--radius-md);
+    }
+
+    .preset-group label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    select, input[type="number"] {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-strong);
+      border-radius: 5px;
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    select:focus, input[type="number"]:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .btn {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      border-color: var(--accent-cyan);
+      background: #263349;
+    }
+
+    .btn-cyan {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .btn-cyan:hover {
+      background: var(--accent-cyan);
+      color: #0b1120;
+    }
+
+    /* Notificación toast sin alert() */
+    .toast-banner {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      background: #0f172a;
+      border: 1px solid var(--accent-emerald);
+      color: var(--text-primary);
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      font-size: 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      z-index: 9999;
+    }
+
+    /* ==========================================================================
+       CONTENEDOR PRINCIPAL DE DOS COLUMNAS (IZQUIERDA: ENTRADAS / DERECHA: PANTALLAS)
+       ========================================================================== */
+    .workspace {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 16px;
+      padding: 16px 20px;
+      flex: 1;
+    }
+
+    @media (max-width: 1100px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* PANEL IZQUIERDO: PARÁMETROS DE ENTRADA */
+    .sidebar {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      height: fit-content;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 8px;
+    }
+
+    .section-header h2 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--accent-cyan);
+    }
+
+    .control-block {
+      background: var(--bg-input);
+      border: 1px solid #1e293b;
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+    }
+
+    .control-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .control-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .control-sub {
+      font-size: 10px;
+      color: var(--text-secondary);
+      display: block;
+    }
+
+    .num-unit {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .num-unit input[type="number"] {
+      width: 74px;
+      text-align: right;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .unit-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      min-width: 34px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: #334155;
+      border-radius: 3px;
+      outline: none;
+      margin-top: 4px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      border: 2px solid #0b1120;
+    }
+
+    .rpm-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .rpm-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      color: var(--text-secondary);
+      padding: 5px;
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .rpm-btn.active {
+      background: rgba(6, 182, 212, 0.18);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* CAJA DE PARÁMETRO B */
+    .param-b-box {
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(15, 23, 42, 0.9) 100%);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .param-b-box span {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .param-b-val {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent-amber);
+    }
+
+    /* ==========================================================================
+       COLUMNA DERECHA: KPIS + PESTAÑAS DE PANTALLAS + DIAGNÓSTICO
+       ========================================================================== */
+    .main-area {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    /* TARJETAS KPI SUPERIORES */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .kpi-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 12px 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+    }
+
+    .kpi-cyan::before { background: var(--accent-cyan); }
+    .kpi-emerald::before { background: var(--accent-emerald); }
+    .kpi-amber::before { background: var(--accent-amber); }
+    .kpi-rose::before { background: var(--accent-rose); }
+
+    .kpi-title {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+    }
+
+    .kpi-main {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      margin: 4px 0;
+      color: var(--text-primary);
+    }
+
+    .kpi-sub {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .badge-factor {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    /* NAVEGACIÓN DE PANTALLAS (TABS) */
+    .screen-container {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .tabs-bar {
+      display: flex;
+      flex-wrap: wrap;
+      background: #0f172a;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 6px 10px 0 10px;
+      gap: 6px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-bottom: none;
+      color: var(--text-secondary);
+      padding: 9px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+      background: rgba(30, 41, 59, 0.5);
+    }
+
+    .tab-btn.active {
+      background: var(--bg-panel);
+      color: var(--accent-cyan);
+      border-color: var(--border-subtle);
+      position: relative;
+    }
+
+    .tab-btn.active::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--bg-panel);
+    }
+
+    .tab-num {
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .screen-content {
+      padding: 16px;
+      display: none;
+    }
+
+    .screen-content.active {
+      display: block;
+    }
+
+    /* CONTENEDOR DE GRÁFICOS SVG */
+    .svg-wrapper {
+      background: #090e1a;
+      border: 1px solid #1e293b;
+      border-radius: var(--radius-md);
+      padding: 10px;
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    svg.chart-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      min-width: 680px;
+    }
+
+    /* LEYENDA E INTERPRETACIÓN PASO A PASO */
+    .trace-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .trace-steps {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .step-card {
+      background: var(--bg-input);
+      border: 1px solid #1e293b;
+      border-radius: var(--radius-md);
+      padding: 9px 11px;
+    }
+
+    .step-card strong {
+      display: block;
+      font-size: 11px;
+      color: var(--accent-cyan);
+      margin-bottom: 3px;
+    }
+
+    .step-card p {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* PANEL DE DIAGNÓSTICO Y TABLA RESUMEN */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 950px) {
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .diag-panel, .table-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+    }
+
+    .alert-item {
+      padding: 9px 12px;
+      border-radius: 6px;
+      margin-top: 8px;
+      font-size: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      border-left: 4px solid;
+    }
+
+    .alert-ok {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: var(--accent-emerald);
+      color: #d1fae5;
+    }
+
+    .alert-warn {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: var(--accent-amber);
+      color: #fef3c7;
+    }
+
+    .alert-crit {
+      background: rgba(239, 68, 68, 0.14);
+      border-color: var(--accent-rose);
+      color: #fee2e2;
+    }
+
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+
+    table.data-table th, table.data-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #1e293b;
+      text-align: right;
+      font-family: var(--font-mono);
+    }
+
+    table.data-table th:first-child, table.data-table td:first-child {
+      text-align: left;
+      font-family: var(--font-sans);
+      color: var(--text-secondary);
+    }
+
+    table.data-table th {
+      color: var(--accent-cyan);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    @media print {
+      .topbar-controls, .sidebar, .tabs-bar { display: none !important; }
+      .workspace { grid-template-columns: 1fr; }
+      body { background: #fff; color: #000; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- BARRA SUPERIOR -->
+  <header class="topbar">
+    <div class="brand-box">
+      <span class="brand-badge">ANSI/HI 9.6.7</span>
+      <div class="brand-title">
+        <h1>SIMULADOR TÉCNICO DE CORRECCIÓN POR VISCOSIDAD</h1>
+        <p>Interpretación Interactiva del Ábaco del Hydraulic Institute — Caudal, Altura, Presión, Potencia y Temperatura</p>
+      </div>
+    </div>
+
+    <div class="topbar-controls">
+      <div class="preset-group">
+        <label for="fluidPreset">Fluido Tipo:</label>
+        <select id="fluidPreset">
+          <option value="custom">-- Personalizado (Manual) --</option>
+          <option value="water20">Agua Limpia (20 °C | 1.0 cSt)</option>
+          <option value="water80">Agua Caliente Proceso (80 °C | 0.36 cSt)</option>
+          <option value="crude28" selected>Crudo Mediano 28° API (40 °C | 35 cSt)</option>
+          <option value="crude16">Crudo Pesado 16° API (50 °C | 240 cSt)</option>
+          <option value="isovg68">Aceite Lubricante ISO VG 68 (40 °C | 68 cSt)</option>
+          <option value="thermal">Aceite Térmico Sintético (150 °C | 4.2 cSt)</option>
+        </select>
+      </div>
+
+      <button class="btn btn-cyan" id="btnSave" title="Guardar punto de operación en navegador">
+        Guardar Punto
+      </button>
+      <button class="btn" id="btnReset" title="Restaurar valores de fábrica">
+        Restaurar
+      </button>
+      <button class="btn" onclick="window.print()" title="Imprimir o guardar reporte PDF">
+        Imprimir Reporte
+      </button>
+    </div>
+  </header>
+
+  <!-- ESPACIO DE TRABAJO PRINCIPAL -->
+  <div class="workspace">
+
+    <!-- PANEL IZQUIERDO: ENTRADAS -->
+    <aside class="sidebar">
+      <div class="section-header">
+        <h2>1. Parámetros Base (Agua en BEP)</h2>
+      </div>
+
+      <!-- Caudal Q_BEP -->
+      <div class="control-block">
+        <div class="control-top">
+          <div>
+            <span class="control-label">Caudal Nominal (Q<sub>BEP</sub>)</span>
+            <span class="control-sub">Punto de máxima eficiencia con agua</span>
+          </div>
+          <div class="num-unit">
+            <input type="number" id="inQ" min="5" max="500" step="1" value="120">
+            <span class="unit-tag">m³/h</span>
+          </div>
+        </div>
+        <input type="range" id="rngQ" min="5" max="500" step="1" value="120">
+      </div>
+
+      <!-- Altura H_agua -->
+      <div class="control-block">
+        <div class="control-top">
+          <div>
+            <span class="control-label">Altura Diferencial (H<sub>agua</sub>)</span>
+            <span class="control-sub">Columna de líquido por etapa</span>
+          </div>
+          <div class="num-unit">
+            <input type="number" id="inH" min="5" max="250" step="1" value="65">
+            <span class="unit-tag">m</span>
+          </div>
+        </div>
+        <input type="range" id="rngH" min="5" max="250" step="1" value="65">
+      </div>
+
+      <!-- Eficiencia Agua -->
+      <div class="control-block">
+        <div class="control-top">
+          <div>
+            <span class="control-label">Eficiencia Hidráulica (η<sub>agua</sub>)</span>
+            <span class="control-sub">Rendimiento de catálogo con agua</span>
+          </div>
+          <div class="num-unit">
+            <input type="number" id="inEff" min="30" max="88" step="0.5" value="76">
+            <span class="unit-tag">%</span>
+          </div>
+        </div>
+        <input type="range" id="rngEff" min="30" max="88" step="0.5" value="76">
+      </div>
+
+      <!-- Velocidad RPM -->
+      <div class="control-block">
+        <div class="control-top">
+          <div>
+            <span class="control-label">Velocidad de Giro (N)</span>
+            <span class="control-sub">Frecuencia 60 Hz (2 o 4 polos)</span>
+          </div>
+          <span class="unit-tag" id="lblRpm">3550 RPM</span>
+        </div>
+        <div class="rpm-selector">
+          <button type="button" class="rpm-btn active" data-rpm="3550">3550 RPM (2P)</button>
+          <button type="button" class="rpm-btn" data-rpm="1750">1750 RPM (4P)</button>
+        </div>
+      </div>
+
+      <div class="section-header" style="margin-top: 4px;">
+        <h2>2. Propiedades del Fluido</h2>
+      </div>
+
+      <!-- Temperatura de Trabajo -->
+      <div class="control-block">
+        <div class="control-top">
+          <div>
+            <span class="control-label">Temperatura de Trabajo (T)</span>
+            <span class="control-sub">Modifica ν y SG en fluidos tipo</span>
+          </div>
+          <div class="num-unit">
+            <input type="number" id="inTemp" min="10" max="250" step="1" value="40">
+            <span class="unit-tag">°C</span>
+          </div>
+        </div>
+        <input type="range" id="rngTemp" min="10" max="250" step="1" value="40">
+      </div>
+
+      <!-- Viscosidad Cinemática -->
+      <div class="control-block">
+        <div class="control-top">
+          <div>
+            <span class="control-label">Viscosidad Cinemática (ν)</span>
+            <span class="control-sub">A temperatura de bombeo</span>
+          </div>
+          <div class="num-unit">
+            <input type="number" id="inVisc" min="0.3" max="1000" step="0.5" value="35">
+            <span class="unit-tag">cSt</span>
+          </div>
+        </div>
+        <input type="range" id="rngVisc" min="1" max="1000" step="1" value="35">
+      </div>
+
+      <!-- Gravedad Específica -->
+      <div class="control-block">
+        <div class="control-top">
+          <div>
+            <span class="control-label">Gravedad Específica (SG)</span>
+            <span class="control-sub">Densidad relativa ρ(T) / ρ<sub>agua</sub></span>
+          </div>
+          <div class="num-unit">
+            <input type="number" id="inSG" min="0.60" max="1.45" step="0.01" value="0.88">
+            <span class="unit-tag">adim</span>
+          </div>
+        </div>
+        <input type="range" id="rngSG" min="0.60" max="1.45" step="0.01" value="0.88">
+      </div>
+
+      <!-- Parámetro B de Hydraulic Institute -->
+      <div class="param-b-box">
+        <div>
+          <strong>Parámetro HI (B)</strong>
+          <span>Índice adimensional ANSI/HI 9.6.7</span>
+        </div>
+        <div class="param-b-val" id="valParamB">11.42</div>
+      </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL DERECHA -->
+    <main class="main-area">
+
+      <!-- 4 TARJETAS KPI -->
+      <section class="kpi-grid">
+        <div class="kpi-card kpi-cyan">
+          <div class="kpi-title">Caudal Corregido (Q<sub>visc</sub>)</div>
+          <div class="kpi-main" id="kpiQ">114.8 m³/h</div>
+          <div class="kpi-sub">
+            <span>Agua: <b id="kpiQBase">120</b> m³/h</span>
+            <span class="badge-factor" id="badgeCQ">C_Q = 0.957</span>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-emerald">
+          <div class="kpi-title">Altura y Presión (H<sub>visc</sub> / ΔP)</div>
+          <div class="kpi-main" id="kpiH">61.9 m</div>
+          <div class="kpi-sub">
+            <span id="kpiPress">5.34 bar (77.5 psi)</span>
+            <span class="badge-factor" id="badgeCH">C_H = 0.952</span>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-title">Eficiencia Real (η<sub>visc</sub>)</div>
+          <div class="kpi-main" id="kpiEff">60.2 %</div>
+          <div class="kpi-sub">
+            <span>Agua: <b id="kpiEffBase">76.0</b> %</span>
+            <span class="badge-factor" id="badgeCEff">C_η = 0.792</span>
+          </div>
+        </div>
+
+        <div class="kpi-card kpi-rose">
+          <div class="kpi-title">Potencia al Eje (P<sub>eje</sub>)</div>
+          <div class="kpi-main" id="kpiPow">28.4 kW</div>
+          <div class="kpi-sub">
+            <span id="kpiHP">38.1 HP</span>
+            <span class="badge-factor" id="badgePowDiff">+1.8% vs Agua</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONTENEDOR CON PESTAÑAS DE 3 PANTALLAS -->
+      <section class="screen-container">
+        <div class="tabs-bar">
+          <button class="tab-btn active" data-tab="screen1">
+            <span class="tab-num">PANTALLA 01</span>
+            Ábaco Interactivo ANSI/HI 9.6.7 (Trazado Ortogonal)
+          </button>
+          <button class="tab-btn" data-tab="screen2">
+            <span class="tab-num">PANTALLA 02</span>
+            Curvas Características (Agua vs. Fluido Viscoso)
+          </button>
+          <button class="tab-btn" data-tab="screen3">
+            <span class="tab-num">PANTALLA 03</span>
+            Sensibilidad Térmica (T vs. ν) y Riesgo de Cavitación
+          </button>
+        </div>
+
+        <!-- PANTALLA 1: ÁBACO DE DOBLE REJILLA HYDRAULIC INSTITUTE -->
+        <div class="screen-content active" id="screen1">
+          <div class="svg-wrapper">
+            <svg id="svgNomograph" class="chart-svg" viewBox="0 0 920 520" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+          <div class="trace-steps">
+            <div class="step-card">
+              <strong>PASO 1 — Entrada Caudal (Eje X)</strong>
+              <p id="step1Text">Se ingresa por Q<sub>BEP</sub> = 120 m³/h en el eje inferior y se proyecta verticalmente.</p>
+            </div>
+            <div class="step-card">
+              <strong>PASO 2 — Corte Altura (Diagonales)</strong>
+              <p id="step2Text">Se intercepta la diagonal de altura diferencial H = 65 m y se gira 90° a la derecha.</p>
+            </div>
+            <div class="step-card">
+              <strong>PASO 3 — Corte Viscosidad (ν)</strong>
+              <p id="step3Text">Se cruza la línea de viscosidad ν = 35 cSt (a 40 °C) y se sube verticalmente al panel superior.</p>
+            </div>
+            <div class="step-card">
+              <strong>PASO 4 — Lectura Factores (C<sub>Q</sub>, C<sub>H</sub>, C<sub>η</sub>)</strong>
+              <p id="step4Text">La vertical corta las curvas superiores dando C_Q = 0.96, C_H = 0.95 y C_η = 0.79.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANTALLA 2: CURVAS CARACTERÍSTICAS COMPARATIVAS -->
+        <div class="screen-content" id="screen2">
+          <div class="svg-wrapper">
+            <svg id="svgCurves" class="chart-svg" viewBox="0 0 920 460" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+        </div>
+
+        <!-- PANTALLA 3: SENSIBILIDAD TÉRMICA Y CAVITACIÓN -->
+        <div class="screen-content" id="screen3">
+          <div class="svg-wrapper">
+            <svg id="svgThermal" class="chart-svg" viewBox="0 0 920 440" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- PANEL INFERIOR: DIAGNÓSTICO DE INGENIERÍA Y TABLA COMPARATIVA -->
+      <section class="bottom-grid">
+        <div class="diag-panel">
+          <div class="section-header">
+            <h2>Diagnóstico Automático de Ingeniería</h2>
+          </div>
+          <div id="diagList"></div>
+        </div>
+
+        <div class="table-panel">
+          <div class="section-header">
+            <h2>Tabla Comparativa de Desempeño (BEP)</h2>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Variable Hidráulica</th>
+                <th>Agua (Ref.)</th>
+                <th>Fluido Viscoso</th>
+                <th>Variación</th>
+              </tr>
+            </thead>
+            <tbody id="summaryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- TOAST NOTIFICACIÓN -->
+  <div class="toast-banner" id="toastBanner">
+    <span style="color:#10b981;font-weight:bold;">●</span>
+    <span id="toastMsg">Configuración guardada localmente.</span>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       LÓGICA DE INGENIERÍA HIDRÁULICA (NORMA ANSI/HI 9.6.7) Y RENDERIZADO SVG
+       ========================================================================== */
+    (function () {
+      "use strict";
+
+      // 1. DEFINICIÓN DE FLUIDOS TIPO (ECUACIÓN DE WALTHER / ASTMD341 SIMPLIFICADA)
+      var FLUID_PRESETS = {
+        water20: {
+          name: "Agua Limpia (20 °C)",
+          temp: 20,
+          visc: 1.0,
+          sg: 0.998,
+          // Función v(T) en cSt para agua líquida
+          calcVisc: function (T) {
+            return Math.max(0.25, 1.78 / (1 + 0.0337 * T + 0.000221 * T * T));
+          },
+          calcSG: function (T) {
+            return +(1.001 - 0.00025 * T - 0.000002 * T * T).toFixed(3);
+          }
+        },
+        water80: {
+          name: "Agua Caliente Proceso (80 °C)",
+          temp: 80,
+          visc: 0.36,
+          sg: 0.972,
+          calcVisc: function (T) {
+            return Math.max(0.22, 1.78 / (1 + 0.0337 * T + 0.000221 * T * T));
+          },
+          calcSG: function (T) {
+            return +(1.001 - 0.00025 * T - 0.000002 * T * T).toFixed(3);
+          }
+        },
+        crude28: {
+          name: "Crudo Mediano 28° API",
+          temp: 40,
+          visc: 35.0,
+          sg: 0.880,
+          calcVisc: function (T) {
+            // Ley exponencial Walther: v(40°C)=35 cSt, v(100°C)=6.5 cSt
+            var k = 0.0281;
+            return Math.max(1.5, 35.0 * Math.exp(-k * (T - 40)));
+          },
+          calcSG: function (T) {
+            return +(0.896 - 0.00065 * (T - 15)).toFixed(3);
+          }
+        },
+        crude16: {
+          name: "Crudo Pesado 16° API",
+          temp: 50,
+          visc: 240.0,
+          sg: 0.952,
+          calcVisc: function (T) {
+            // Ley exponencial Walther: v(50°C)=240 cSt, v(100°C)=28 cSt
+            var k = 0.043;
+            return Math.max(4.0, 240.0 * Math.exp(-k * (T - 50)));
+          },
+          calcSG: function (T) {
+            return +(0.975 - 0.00062 * (T - 15)).toFixed(3);
+          }
+        },
+        isovg68: {
+          name: "Aceite Lubricante ISO VG 68",
+          temp: 40,
+          visc: 68.0,
+          sg: 0.875,
+          calcVisc: function (T) {
+            // ISO VG 68: 68 cSt a 40°C, ~8.8 cSt a 100°C
+            var k = 0.0341;
+            return Math.max(2.0, 68.0 * Math.exp(-k * (T - 40)));
+          },
+          calcSG: function (T) {
+            return +(0.890 - 0.00063 * (T - 15)).toFixed(3);
+          }
+        },
+        thermal: {
+          name: "Aceite Térmico Sintético",
+          temp: 150,
+          visc: 4.2,
+          sg: 0.910,
+          calcVisc: function (T) {
+            var k = 0.021;
+            return Math.max(0.5, 4.2 * Math.exp(-k * (T - 150)));
+          },
+          calcSG: function (T) {
+            return +(1.015 - 0.00072 * T).toFixed(3);
+          }
+        }
+      };
+
+      // ESTADO DE LA APLICACIÓN
+      var state = {
+        preset: "crude28",
+        Q: 120,      // m3/h
+        H: 65,       // m
+        eff: 76,     // %
+        rpm: 3550,   // RPM
+        temp: 40,    // °C
+        visc: 35,    // cSt
+        sg: 0.88     // adim
+      };
+
+      // REFERENCIAS DOM
+      var dom = {
+        preset: document.getElementById("fluidPreset"),
+        inQ: document.getElementById("inQ"),
+        rngQ: document.getElementById("rngQ"),
+        inH: document.getElementById("inH"),
+        rngH: document.getElementById("rngH"),
+        inEff: document.getElementById("inEff"),
+        rngEff: document.getElementById("rngEff"),
+        inTemp: document.getElementById("inTemp"),
+        rngTemp: document.getElementById("rngTemp"),
+        inVisc: document.getElementById("inVisc"),
+        rngVisc: document.getElementById("rngVisc"),
+        inSG: document.getElementById("inSG"),
+        rngSG: document.getElementById("rngSG"),
+        lblRpm: document.getElementById("lblRpm"),
+        valParamB: document.getElementById("valParamB"),
+        // KPIs
+        kpiQ: document.getElementById("kpiQ"),
+        kpiQBase: document.getElementById("kpiQBase"),
+        badgeCQ: document.getElementById("badgeCQ"),
+        kpiH: document.getElementById("kpiH"),
+        kpiPress: document.getElementById("kpiPress"),
+        badgeCH: document.getElementById("badgeCH"),
+        kpiEff: document.getElementById("kpiEff"),
+        kpiEffBase: document.getElementById("kpiEffBase"),
+        badgeCEff: document.getElementById("badgeCEff"),
+        kpiPow: document.getElementById("kpiPow"),
+        kpiHP: document.getElementById("kpiHP"),
+        badgePowDiff: document.getElementById("badgePowDiff"),
+        // Pasos
+        step1: document.getElementById("step1Text"),
+        step2: document.getElementById("step2Text"),
+        step3: document.getElementById("step3Text"),
+        step4: document.getElementById("step4Text"),
+        // SVGs y Tablas
+        svgNomograph: document.getElementById("svgNomograph"),
+        svgCurves: document.getElementById("svgCurves"),
+        svgThermal: document.getElementById("svgThermal"),
+        diagList: document.getElementById("diagList"),
+        tableBody: document.getElementById("summaryTableBody")
+      };
+
+      // UTILIDAD TOAST
+      function showToast(msg) {
+        var banner = document.getElementById("toastBanner");
+        document.getElementById("toastMsg").textContent = msg;
+        banner.style.display = "flex";
+        clearTimeout(window._toastTimer);
+        window._toastTimer = setTimeout(function () {
+          banner.style.display = "none";
+        }, 2800);
+      }
+
+      // ========================================================================
+      // 2. MODELO MATEMÁTICO ANSI/HI 9.6.7 (PARÁMETRO B Y FACTORES C_Q, C_H, C_η)
+      // ========================================================================
+      function computeHydraulicModel(s) {
+        // Fórmula oficial ANSI/HI 9.6.7 para parámetro adimensional B:
+        // B = 16.5 * (v^0.50) * (H_BEP^0.0625) / ((Q_BEP^0.375) * (N^0.25))
+        // Con v en cSt, H en m, Q en m3/h, N en RPM.
+        var vEff = Math.max(1.0, s.visc);
+        var B = 16.5 * Math.pow(vEff, 0.50) * Math.pow(s.H, 0.0625) /
+                (Math.pow(s.Q, 0.375) * Math.pow(s.rpm, 0.25));
+
+        if (s.visc <= 1.2) {
+          B = 0; // Comportamiento idéntico al agua
+        }
+
+        // Polinomios de ajuste de las curvas ANSI/HI 9.6.7 (válidos para B hasta ~40)
+        var CQ, CH_10, CH_06, CH_08, CH_12, CEff;
+
+        if (B <= 1.0) {
+          CQ = 1.0;
+          CH_10 = 1.0;
+          CH_06 = 1.0;
+          CH_08 = 1.0;
+          CH_12 = 1.0;
+          CEff = 1.0;
+        } else {
+          // Ecuaciones correlacionadas con el ábaco estándar HI 9.6.7:
+          // C_Q = exp(-0.165 * (log10(B))^3.15)
+          var logB = Math.log(B) / Math.LN10;
+          CQ = Math.exp(-0.165 * Math.pow(logB, 3.15));
+          CQ = Math.max(0.30, Math.min(1.0, CQ));
+
+          // C_H en 1.0 Q_BEP
+          CH_10 = 1.0 - 0.00070 * Math.pow(B - 1, 1.85);
+          CH_10 = Math.max(0.45, Math.min(1.0, CH_10));
+
+          // C_H a cargas parciales y sobrecarga (0.6, 0.8, 1.2 Q_BEP)
+          CH_06 = Math.min(1.0, CH_10 + (1.0 - CH_10) * 0.38);
+          CH_08 = Math.min(1.0, CH_10 + (1.0 - CH_10) * 0.18);
+          CH_12 = Math.max(0.35, CH_10 - (1.0 - CH_10) * 0.24);
+
+          // C_eta (Factor de eficiencia cae más rápido por fricción de disco)
+          CEff = Math.pow(B, -0.0547 * Math.pow(B, 0.69));
+          CEff = Math.max(0.20, Math.min(1.0, CEff));
+        }
+
+        // Cálculos con Agua (Referencia)
+        var effAgua = s.eff / 100;
+        var dP_agua_bar = (1.0 * 9.80665 * s.H) / 100; // bar (rho=1000 kg/m3)
+        var P_hid_agua = (s.Q * s.H * 1.0) / 367.0;     // kW
+        var P_eje_agua = P_hid_agua / effAgua;          // kW
+
+        // Cálculos Corregidos para Fluido Viscoso
+        var Q_visc = s.Q * CQ;
+        var H_visc = s.H * CH_10;
+        var eff_visc = effAgua * CEff;
+        var dP_visc_bar = (s.sg * 9.80665 * H_visc) / 100;
+        var dP_visc_psi = dP_visc_bar * 14.5038;
+        var P_hid_visc = (Q_visc * H_visc * s.sg) / 367.0;
+        var P_eje_visc = P_hid_visc / eff_visc;
+        var P_eje_visc_HP = P_eje_visc * 1.34102;
+
+        var powVariationPct = ((P_eje_visc - P_eje_agua) / P_eje_agua) * 100;
+
+        return {
+          B: B,
+          CQ: CQ,
+          CH_06: CH_06,
+          CH_08: CH_08,
+          CH_10: CH_10,
+          CH_12: CH_12,
+          CEff: CEff,
+          Q_agua: s.Q,
+          H_agua: s.H,
+          eff_agua_pct: s.eff,
+          dP_agua_bar: dP_agua_bar,
+          P_hid_agua: P_hid_agua,
+          P_eje_agua: P_eje_agua,
+          Q_visc: Q_visc,
+          H_visc: H_visc,
+          eff_visc_pct: eff_visc * 100,
+          dP_visc_bar: dP_visc_bar,
+          dP_visc_psi: dP_visc_psi,
+          P_hid_visc: P_hid_visc,
+          P_eje_visc: P_eje_visc,
+          P_eje_visc_HP: P_eje_visc_HP,
+          powVariationPct: powVariationPct
+        };
+      }
+
+      // ========================================================================
+      // 3. RENDERIZADO PANTALLA 1: ÁBACO INTERACTIVO DOBLE REJILLA (SVG)
+      // ========================================================================
+      function renderNomographSVG(s, res) {
+        var svg = dom.svgNomograph;
+        var html = [];
+
+        // Dimensiones del lienzo SVG (920 x 520)
+        // Panel Superior (Factores C_Q, C_H, C_eta): Y de 30 a 220
+        // Panel Inferior (Caudal Q -> Altura H -> Viscosidad v): Y de 245 a 475
+        // Eje X común: de X = 85 a X = 850
+
+        var xLeft = 85, xRight = 840;
+        var yTop1 = 30, yBot1 = 215;
+        var yTop2 = 245, yBot2 = 475;
+
+        // Fondo y marcos de los dos paneles
+        html.push('<rect x="' + xLeft + '" y="' + yTop1 + '" width="' + (xRight - xLeft) + '" height="' + (yBot1 - yTop1) + '" fill="#0d1526" stroke="#334155" stroke-width="1.2"/>');
+        html.push('<rect x="' + xLeft + '" y="' + yTop2 + '" width="' + (xRight - xLeft) + '" height="' + (yBot2 - yTop2) + '" fill="#0d1526" stroke="#334155" stroke-width="1.2"/>');
+
+        // --- ESCALAS LOGARÍTMICAS PARA REPRODUCIR EL ÁBACO REAL ---
+        // Eje X inferior: Caudal Q_BEP de 5 a 500 m3/h (escala logarítmica)
+        function mapQToX(q) {
+          var qClamped = Math.max(5, Math.min(500, q));
+          var t = (Math.log(qClamped) - Math.log(5)) / (Math.log(500) - Math.log(5));
+          return xLeft + t * (xRight - xLeft);
+        }
+
+        // Eje Y superior: Factores de Corrección de 0.20 a 1.05
+        function mapFactorToY(f) {
+          var fClamped = Math.max(0.20, Math.min(1.05, f));
+          var t = (fClamped - 0.20) / (1.05 - 0.20);
+          return yBot1 - t * (yBot1 - yTop1);
+        }
+
+        // Rejilla vertical en ambos paneles (ticks de Q: 5, 10, 20, 30, 50, 100, 200, 300, 500)
+        var qTicks = [5, 10, 15, 20, 30, 50, 75, 100, 150, 200, 300, 500];
+        qTicks.forEach(function (qt) {
+          var xx = mapQToX(qt);
+          html.push('<line x1="' + xx + '" y1="' + yTop1 + '" x2="' + xx + '" y2="' + yBot1 + '" stroke="#1e293b" stroke-width="1"/>');
+          html.push('<line x1="' + xx + '" y1="' + yTop2 + '" x2="' + xx + '" y2="' + yBot2 + '" stroke="#1e293b" stroke-width="1"/>');
+          html.push('<text x="' + xx + '" y="' + (yBot2 + 16) + '" fill="#94a3b8" font-size="10" font-family="monospace" text-anchor="middle">' + qt + '</text>');
+        });
+        html.push('<text x="' + ((xLeft + xRight) / 2) + '" y="510" fill="#cbd5e1" font-size="11" font-weight="bold" text-anchor="middle">CAUDAL NOMINAL CON AGUA EN BEP — Q (m³/h) [Escala Logarítmica]</text>');
+
+        // Rejilla horizontal Panel Superior (Factores 0.2 a 1.0)
+        var fTicks = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+        fTicks.forEach(function (ft) {
+          var yy = mapFactorToY(ft);
+          html.push('<line x1="' + xLeft + '" y1="' + yy + '" x2="' + xRight + '" y2="' + yy + '" stroke="#1e293b" stroke-width="1"/>');
+          html.push('<text x="' + (xLeft - 8) + '" y="' + (yy + 3) + '" fill="#94a3b8" font-size="10" font-family="monospace" text-anchor="end">' + ft.toFixed(1) + '</text>');
+        });
+        html.push('<text x="22" y="' + ((yTop1 + yBot1) / 2) + '" fill="#06b6d4" font-size="11" font-weight="bold" text-anchor="middle" transform="rotate(-90 22 ' + ((yTop1 + yBot1) / 2) + ')">FACTOR DE CORRECCIÓN</text>');
+
+        // --- DIAGONALES DEL PANEL INFERIOR (ALTURA H Y VISCOSIDAD v) ---
+        // Representación fiel del ábaco:
+        // Un punto en el panel inferior tiene coordenada (x_Q, y_H) donde:
+        // y_H baja al subir H, y luego la línea horizontal hasta x_final depende de la viscosidad v.
+        // Para que la trazabilidad ortogonal sea 100% geométrica y exacta:
+        // 1) Subimos desde x1 = mapQToX(Q) hasta la línea diagonal de Altura H -> yMid
+        // 2) Vamos horizontalmente desde x1 hasta la línea diagonal de Viscosidad v -> x2
+        // 3) Subimos verticalmente en x2 hacia el Panel Superior, donde están dibujadas las curvas C_Q(x2), C_H(x2), C_eta(x2) en función del parámetro B!
+
+        // Definimos el eje superior como una función lineal del Parámetro B (de B = 1 en xLeft a B = 42 en xRight)
+        function mapBToX(bVal) {
+          var bClamped = Math.max(1, Math.min(42, bVal));
+          var t = (bClamped - 1) / (42 - 1);
+          return xLeft + t * (xRight - xLeft);
+        }
+
+        // Dibujar curvas maestras de C_Q, C_H (1.0 Q_BEP), C_H (0.6 Q_BEP) y C_eta en el panel superior
+        var pathCQ = [], pathCH10 = [], pathCH06 = [], pathCEff = [];
+        for (var b = 1; b <= 42; b += 0.5) {
+          var xb = mapBToX(b);
+          var logB = Math.log(Math.max(1.0001, b)) / Math.LN10;
+          var cq_b = b <= 1 ? 1 : Math.max(0.3, Math.exp(-0.165 * Math.pow(logB, 3.15)));
+          var ch10_b = b <= 1 ? 1 : Math.max(0.45, 1.0 - 0.00070 * Math.pow(b - 1, 1.85));
+          var ch06_b = Math.min(1.0, ch10_b + (1.0 - ch10_b) * 0.38);
+          var ceff_b = b <= 1 ? 1 : Math.max(0.20, Math.pow(b, -0.0547 * Math.pow(b, 0.69)));
+
+          pathCQ.push((b === 1 ? "M" : "L") + xb.toFixed(1) + "," + mapFactorToY(cq_b).toFixed(1));
+          pathCH10.push((b === 1 ? "M" : "L") + xb.toFixed(1) + "," + mapFactorToY(ch10_b).toFixed(1));
+          pathCH06.push((b === 1 ? "M" : "L") + xb.toFixed(1) + "," + mapFactorToY(ch06_b).toFixed(1));
+          pathCEff.push((b === 1 ? "M" : "L") + xb.toFixed(1) + "," + mapFactorToY(ceff_b).toFixed(1));
+        }
+
+        html.push('<path d="' + pathCH06.join(" ") + '" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4,3"/>');
+        html.push('<path d="' + pathCH10.join(" ") + '" fill="none" stroke="#10b981" stroke-width="2.2"/>');
+        html.push('<path d="' + pathCQ.join(" ") + '" fill="none" stroke="#06b6d4" stroke-width="2.2"/>');
+        html.push('<path d="' + pathCEff.join(" ") + '" fill="none" stroke="#f59e0b" stroke-width="2.4"/>');
+
+        // Etiquetas de las curvas en el extremo derecho del panel superior
+        html.push('<text x="' + (xRight + 6) + '" y="' + mapFactorToY(0.76) + '" fill="#38bdf8" font-size="10" font-family="monospace">C_H (0.6Q)</text>');
+        html.push('<text x="' + (xRight + 6) + '" y="' + mapFactorToY(0.61) + '" fill="#10b981" font-size="10" font-family="monospace" font-weight="bold">C_H (1.0Q)</text>');
+        html.push('<text x="' + (xRight + 6) + '" y="' + mapFactorToY(0.50) + '" fill="#06b6d4" font-size="10" font-family="monospace" font-weight="bold">C_Q</text>');
+        html.push('<text x="' + (xRight + 6) + '" y="' + mapFactorToY(0.24) + '" fill="#f59e0b" font-size="10" font-family="monospace" font-weight="bold">C_η (Efic.)</text>');
+
+        // --- REJILLA DIAGONAL INFERIOR (ALTURA H Y VISCOSIDAD v) ---
+        // Mapeo geométrico consistente:
+        // y_H(Q, H) = yBot2 - ((log(Q/5)/log(100)) * 95 + (H / 250) * 110)
+        function getYFromQH(q, h) {
+          var tQ = (Math.log(Math.max(5, Math.min(500, q))) - Math.log(5)) / (Math.log(500) - Math.log(5));
+          var tH = Math.max(5, Math.min(250, h)) / 250;
+          return yBot2 - (tQ * 95 + tH * 115 + 10);
+        }
+
+        // Dibujar familia de líneas diagonales de Altura H (10, 30, 60, 100, 150, 220 m)
+        var hLines = [10, 30, 60, 100, 150, 220];
+        hLines.forEach(function (hl) {
+          var xA = mapQToX(5), yA = getYFromQH(5, hl);
+          var xB = mapQToX(500), yB = getYFromQH(500, hl);
+          html.push('<line x1="' + xA + '" y1="' + yA + '" x2="' + xB + '" y2="' + yB + '" stroke="#1e3a5f" stroke-width="1.2"/>');
+          html.push('<text x="' + (xA + 4) + '" y="' + (yA - 3) + '" fill="#60a5fa" font-size="9" font-family="monospace">H=' + hl + 'm</text>');
+        });
+
+        // Dibujar familia de líneas de Viscosidad v (5, 20, 50, 150, 400, 1000 cSt)
+        var vLines = [5, 20, 50, 150, 400, 1000];
+        vLines.forEach(function (vl) {
+          var pts = [];
+          for (var qStep = 8; qStep <= 480; qStep *= 1.45) {
+            var bSim = 16.5 * Math.pow(vl, 0.5) * Math.pow(s.H, 0.0625) / (Math.pow(qStep, 0.375) * Math.pow(s.rpm, 0.25));
+            if (bSim >= 1 && bSim <= 42) {
+              pts.push((pts.length === 0 ? "M" : "L") + mapBToX(bSim).toFixed(1) + "," + getYFromQH(qStep, s.H).toFixed(1));
+            }
+          }
+          if (pts.length > 1) {
+            html.push('<path d="' + pts.join(" ") + '" fill="none" stroke="#3b2f4a" stroke-width="1.2" stroke-dasharray="3,2"/>');
+          }
+        });
+        html.push('<text x="22" y="' + ((yTop2 + yBot2) / 2) + '" fill="#a78bfa" font-size="11" font-weight="bold" text-anchor="middle" transform="rotate(-90 22 ' + ((yTop2 + yBot2) / 2) + ')">ALTURA (H) / VISCOSIDAD (ν)</text>');
+
+        // --- TRAZADO ORTOGONAL ACTIVO DEL PUNTO DE OPERACIÓN ---
+        var xStart = mapQToX(s.Q);
+        var yMid = getYFromQH(s.Q, s.H);
+        var xEnd = mapBToX(res.B);
+
+        var yCQ = mapFactorToY(res.CQ);
+        var yCH = mapFactorToY(res.CH_10);
+        var yCEff = mapFactorToY(res.CEff);
+        var yTopTrace = Math.min(yCQ, yCH, yCEff);
+
+        // 1. Línea vertical desde Eje Q hasta diagonal H
+        html.push('<line x1="' + xStart + '" y1="' + yBot2 + '" x2="' + xStart + '" y2="' + yMid + '" stroke="#ef4444" stroke-width="2.2" stroke-dasharray="5,3"/>');
+        // 2. Línea horizontal desde diagonal H hasta viscosidad v (xEnd)
+        html.push('<line x1="' + xStart + '" y1="' + yMid + '" x2="' + xEnd + '" y2="' + yMid + '" stroke="#ef4444" stroke-width="2.2" stroke-dasharray="5,3"/>');
+        // 3. Línea vertical hacia el panel superior hasta cortar C_Q, C_H y C_eta
+        html.push('<line x1="' + xEnd + '" y1="' + yMid + '" x2="' + xEnd + '" y2="' + yTopTrace + '" stroke="#ef4444" stroke-width="2.2" stroke-dasharray="5,3"/>');
+
+        // Puntos de cruce luminosos
+        html.push('<circle cx="' + xStart + '" cy="' + yBot2 + '" r="4.5" fill="#ef4444"/>');
+        html.push('<circle cx="' + xStart + '" cy="' + yMid + '" r="5" fill="#38bdf8" stroke="#fff" stroke-width="1.5"/>');
+        html.push('<circle cx="' + xEnd + '" cy="' + yMid + '" r="5" fill="#a78bfa" stroke="#fff" stroke-width="1.5"/>');
+
+        // Puntos sobre las 3 curvas superiores
+        html.push('<circle cx="' + xEnd + '" cy="' + yCH + '" r="5.5" fill="#10b981" stroke="#fff" stroke-width="1.5"/>');
+        html.push('<circle cx="' + xEnd + '" cy="' + yCQ + '" r="5.5" fill="#06b6d4" stroke="#fff" stroke-width="1.5"/>');
+        html.push('<circle cx="' + xEnd + '" cy="' + yCEff + '" r="5.5" fill="#f59e0b" stroke="#fff" stroke-width="1.5"/>');
+
+        // Etiquetas dinámicas sobre el trazado
+        html.push('<rect x="' + (xStart - 36) + '" y="' + (yMid - 22) + '" width="72" height="16" rx="3" fill="#0f172a" stroke="#38bdf8"/>');
+        html.push('<text x="' + xStart + '" y="' + (yMid - 11) + '" fill="#38bdf8" font-size="10" font-family="monospace" text-anchor="middle">H = ' + s.H + ' m</text>');
+
+        var labelBoxX = Math.min(xRight - 95, xEnd + 8);
+        html.push('<rect x="' + labelBoxX + '" y="' + (yMid - 22) + '" width="88" height="16" rx="3" fill="#0f172a" stroke="#a78bfa"/>');
+        html.push('<text x="' + (labelBoxX + 44) + '" y="' + (yMid - 11) + '" fill="#a78bfa" font-size="10" font-family="monospace" text-anchor="middle">ν = ' + s.visc.toFixed(1) + ' cSt</text>');
+
+        // Etiqueta superior parámetro B
+        html.push('<text x="' + xEnd + '" y="' + (yTop1 - 8) + '" fill="#ef4444" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle">B = ' + res.B.toFixed(2) + '</text>');
+
+        svg.innerHTML = html.join("");
+      }
+
+      // ========================================================================
+      // 4. RENDERIZADO PANTALLA 2: CURVAS CARACTERÍSTICAS (AGUA VS VISCOSO)
+      // ========================================================================
+      function renderCharacteristicCurvesSVG(s, res) {
+        var svg = dom.svgCurves;
+        var html = [];
+
+        var xL = 75, xR = 835;
+        var yT = 35, yB = 400;
+
+        html.push('<rect x="' + xL + '" y="' + yT + '" width="' + (xR - xL) + '" height="' + (yB - yT) + '" fill="#0d1526" stroke="#334155" stroke-width="1.2"/>');
+
+        var qMaxPlot = s.Q * 1.30;
+        var hShutoffAgua = s.H * 1.22;
+        var pMaxPlot = Math.max(res.P_eje_agua, res.P_eje_visc) * 1.35;
+
+        function mapX(q) {
+          return xL + (q / qMaxPlot) * (xR - xL);
+        }
+        function mapYH(h) {
+          return yB - (h / (hShutoffAgua * 1.15)) * (yB - yT);
+        }
+        function mapYP(p) {
+          return yB - (p / pMaxPlot) * (yB - yT);
+        }
+        function mapYEff(effPct) {
+          return yB - (effPct / 100) * (yB - yT);
+        }
+
+        // Rejilla X (0 a 130% Q_BEP)
+        for (var i = 0; i <= 6; i++) {
+          var qVal = (qMaxPlot / 6) * i;
+          var xx = mapX(qVal);
+          html.push('<line x1="' + xx + '" y1="' + yT + '" x2="' + xx + '" y2="' + yB + '" stroke="#1e293b" stroke-width="1"/>');
+          html.push('<text x="' + xx + '" y="' + (yB + 16) + '" fill="#94a3b8" font-size="10" font-family="monospace" text-anchor="middle">' + qVal.toFixed(0) + '</text>');
+        }
+        html.push('<text x="' + ((xL + xR) / 2) + '" y="438" fill="#cbd5e1" font-size="11" font-weight="bold" text-anchor="middle">CAUDAL VOLUMÉTRICO — Q (m³/h)</text>');
+
+        // Rejilla Y Izquierda (Altura H en m) y Derecha (Potencia P en kW)
+        for (var j = 0; j <= 5; j++) {
+          var frac = j / 5;
+          var yy = yB - frac * (yB - yT);
+          var hTick = frac * (hShutoffAgua * 1.15);
+          var pTick = frac * pMaxPlot;
+          html.push('<line x1="' + xL + '" y1="' + yy + '" x2="' + xR + '" y2="' + yy + '" stroke="#1e293b" stroke-width="1"/>');
+          html.push('<text x="' + (xL - 8) + '" y="' + (yy + 3) + '" fill="#38bdf8" font-size="10" font-family="monospace" text-anchor="end">' + hTick.toFixed(0) + 'm</text>');
+          html.push('<text x="' + (xR + 8) + '" y="' + (yy + 3) + '" fill="#ef4444" font-size="10" font-family="monospace" text-anchor="start">' + pTick.toFixed(1) + 'kW</text>');
+        }
+
+        // Construcción de curvas H-Q, P-Q y Eficiencia (Agua vs Viscoso)
+        var dH_agua = [], dH_visc = [];
+        var dP_agua = [], dP_visc = [];
+        var dE_agua = [], dE_visc = [];
+
+        var steps = 40;
+        for (var k = 0; k <= steps; k++) {
+          var ratio = (k / steps) * 1.25; // de 0 a 1.25 Q_BEP
+          var q_a = s.Q * ratio;
+          // Curva parabólica típica de bomba centrífuga radial: H(q) = H_shutoff - k * q^2
+          var h_a = hShutoffAgua - (hShutoffAgua - s.H) * Math.pow(ratio, 2);
+          // Eficiencia parabólica centrada en ratio = 1.0
+          var eff_a = Math.max(5, s.eff * (1 - 0.85 * Math.pow(ratio - 1, 2)));
+          if (ratio === 0) eff_a = 0;
+
+          // Potencia agua (shut-off ~ 45% de potencia BEP)
+          var p_a = (ratio === 0)
+            ? res.P_eje_agua * 0.45
+            : (q_a * h_a * 1.0) / (367.0 * (eff_a / 100));
+
+          // Interpolación del factor C_H según el ratio de caudal (0.6, 0.8, 1.0, 1.2)
+          var ch_local = res.CH_10;
+          if (ratio < 0.8) {
+            ch_local = res.CH_06 + (res.CH_08 - res.CH_06) * ((ratio - 0.6) / 0.2);
+          } else if (ratio < 1.0) {
+            ch_local = res.CH_08 + (res.CH_10 - res.CH_08) * ((ratio - 0.8) / 0.2);
+          } else {
+            ch_local = res.CH_10 + (res.CH_12 - res.CH_10) * ((ratio - 1.0) / 0.2);
+          }
+          ch_local = Math.max(0.35, Math.min(1.0, ch_local));
+
+          var q_v = q_a * res.CQ;
+          var h_v = h_a * ch_local;
+          var eff_v = eff_a * res.CEff;
+          var p_v = (ratio === 0)
+            ? res.P_eje_visc * 0.52
+            : (q_v * h_v * s.sg) / (367.0 * Math.max(0.05, eff_v / 100));
+
+          var cmd = (k === 0) ? "M" : "L";
+          dH_agua.push(cmd + mapX(q_a).toFixed(1) + "," + mapYH(h_a).toFixed(1));
+          dH_visc.push(cmd + mapX(q_v).toFixed(1) + "," + mapYH(h_v).toFixed(1));
+
+          dP_agua.push(cmd + mapX(q_a).toFixed(1) + "," + mapYP(p_a).toFixed(1));
+          dP_visc.push(cmd + mapX(q_v).toFixed(1) + "," + mapYP(p_v).toFixed(1));
+
+          dE_agua.push(cmd + mapX(q_a).toFixed(1) + "," + mapYEff(eff_a).toFixed(1));
+          dE_visc.push(cmd + mapX(q_v).toFixed(1) + "," + mapYEff(eff_v).toFixed(1));
+        }
+
+        // Dibujar curvas
+        html.push('<path d="' + dH_agua.join(" ") + '" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="5,4"/>');
+        html.push('<path d="' + dH_visc.join(" ") + '" fill="none" stroke="#06b6d4" stroke-width="2.8"/>');
+
+        html.push('<path d="' + dP_agua.join(" ") + '" fill="none" stroke="#fca5a5" stroke-width="2" stroke-dasharray="5,4"/>');
+        html.push('<path d="' + dP_visc.join(" ") + '" fill="none" stroke="#ef4444" stroke-width="2.8"/>');
+
+        html.push('<path d="' + dE_agua.join(" ") + '" fill="none" stroke="#fcd34d" stroke-width="1.8" stroke-dasharray="4,3"/>');
+        html.push('<path d="' + dE_visc.join(" ") + '" fill="none" stroke="#f59e0b" stroke-width="2.4"/>');
+
+        // Puntos BEP destacados (Agua vs Viscoso)
+        html.push('<circle cx="' + mapX(res.Q_agua) + '" cy="' + mapYH(res.H_agua) + '" r="5" fill="#38bdf8"/>');
+        html.push('<circle cx="' + mapX(res.Q_visc) + '" cy="' + mapYH(res.H_visc) + '" r="6" fill="#06b6d4" stroke="#fff" stroke-width="1.5"/>');
+
+        html.push('<circle cx="' + mapX(res.Q_agua) + '" cy="' + mapYP(res.P_eje_agua) + '" r="5" fill="#fca5a5"/>');
+        html.push('<circle cx="' + mapX(res.Q_visc) + '" cy="' + mapYP(res.P_eje_visc) + '" r="6" fill="#ef4444" stroke="#fff" stroke-width="1.5"/>');
+
+        // Leyenda superior
+        html.push('<rect x="' + (xL + 15) + '" y="' + (yT + 10) + '" width="450" height="46" rx="6" fill="#0f172a" fill-opacity="0.9" stroke="#334155"/>');
+        html.push('<line x1="' + (xL + 25) + '" y1="' + (yT + 24) + '" x2="' + (xL + 50) + '" y2="' + (yT + 24) + '" stroke="#06b6d4" stroke-width="2.8"/>');
+        html.push('<text x="' + (xL + 56) + '" y="' + (yT + 28) + '" fill="#f8fafc" font-size="10">Altura H-Q Viscoso (Línea continua) vs Agua (Punteada)</text>');
+        html.push('<line x1="' + (xL + 25) + '" y1="' + (yT + 42) + '" x2="' + (xL + 50) + '" y2="' + (yT + 42) + '" stroke="#ef4444" stroke-width="2.8"/>');
+        html.push('<text x="' + (xL + 56) + '" y="' + (yT + 46) + '" fill="#f8fafc" font-size="10">Potencia P-Q Viscoso (Rojo) | Eficiencia η-Q Viscoso (Ámbar)</text>');
+
+        svg.innerHTML = html.join("");
+      }
+
+      // ========================================================================
+      // 5. RENDERIZADO PANTALLA 3: SENSIBILIDAD TÉRMICA (T vs v Y POTENCIA)
+      // ========================================================================
+      function renderThermalSVG(s, res) {
+        var svg = dom.svgThermal;
+        var html = [];
+
+        var xL = 80, xR = 835;
+        var yT = 35, yB = 385;
+
+        html.push('<rect x="' + xL + '" y="' + yT + '" width="' + (xR - xL) + '" height="' + (yB - yT) + '" fill="#0d1526" stroke="#334155" stroke-width="1.2"/>');
+
+        // Zona crítica de alta viscosidad (> 200 cSt)
+        var y200cSt = yB - (200 / 500) * (yB - yT);
+        html.push('<rect x="' + xL + '" y="' + yT + '" width="' + (xR - xL) + '" height="' + (y200cSt - yT) + '" fill="rgba(239, 68, 68, 0.08)"/>');
+        html.push('<line x1="' + xL + '" y1="' + y200cSt + '" x2="' + xR + '" y2="' + y200cSt + '" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="4,4"/>');
+        html.push('<text x="' + (xR - 10) + '" y="' + (y200cSt - 6) + '" fill="#fca5a5" font-size="10" font-family="monospace" text-anchor="end">UMBRAL 200 cSt (Evaluar Bomba Desplazamiento Positivo)</text>');
+
+        // Eje X: Temperatura de 10 °C a 250 °C
+        function mapXT(t) {
+          return xL + ((t - 10) / 240) * (xR - xL);
+        }
+        function mapYVisc(v) {
+          var vClamped = Math.min(500, Math.max(0, v));
+          return yB - (vClamped / 500) * (yB - yT);
+        }
+        function mapYPow(p) {
+          var pMax = Math.max(50, res.P_eje_visc * 1.6);
+          return yB - (Math.min(pMax, p) / pMax) * (yB - yT);
+        }
+
+        for (var tTick = 10; tTick <= 250; tTick += 30) {
+          var xx = mapXT(tTick);
+          html.push('<line x1="' + xx + '" y1="' + yT + '" x2="' + xx + '" y2="' + yB + '" stroke="#1e293b" stroke-width="1"/>');
+          html.push('<text x="' + xx + '" y="' + (yB + 16) + '" fill="#94a3b8" font-size="10" font-family="monospace" text-anchor="middle">' + tTick + ' °C</text>');
+        }
+        html.push('<text x="' + ((xL + xR) / 2) + '" y="422" fill="#cbd5e1" font-size="11" font-weight="bold" text-anchor="middle">TEMPERATURA DE OPERACIÓN DEL FLUIDO — T (°C)</text>');
+
+        // Eje Y Viscosidad (0 a 500 cSt)
+        for (var vTick = 0; vTick <= 500; vTick += 100) {
+          var yy = mapYVisc(vTick);
+          html.push('<line x1="' + xL + '" y1="' + yy + '" x2="' + xR + '" y2="' + yy + '" stroke="#1e293b" stroke-width="1"/>');
+          html.push('<text x="' + (xL - 8) + '" y="' + (yy + 3) + '" fill="#a78bfa" font-size="10" font-family="monospace" text-anchor="end">' + vTick + ' cSt</text>');
+        }
+
+        // Generar curva viscosidad vs temperatura (usando preset activo o ley exponencial alrededor del punto actual)
+        var presetObj = FLUID_PRESETS[s.preset];
+        var dVisc = [], dPow = [];
+
+        for (var tempVal = 10; tempVal <= 250; tempVal += 5) {
+          var vT, sgT;
+          if (presetObj) {
+            vT = presetObj.calcVisc(tempVal);
+            sgT = presetObj.calcSG(tempVal);
+          } else {
+            // Curva Walther genérica anclada al punto manual (s.temp, s.visc)
+            vT = Math.max(0.5, s.visc * Math.exp(-0.032 * (tempVal - s.temp)));
+            sgT = Math.max(0.60, s.sg - 0.0006 * (tempVal - s.temp));
+          }
+
+          var simRes = computeHydraulicModel({
+            Q: s.Q, H: s.H, eff: s.eff, rpm: s.rpm,
+            temp: tempVal, visc: vT, sg: sgT
+          });
+
+          var cmd = (tempVal === 10) ? "M" : "L";
+          dVisc.push(cmd + mapXT(tempVal).toFixed(1) + "," + mapYVisc(vT).toFixed(1));
+          dPow.push(cmd + mapXT(tempVal).toFixed(1) + "," + mapYPow(simRes.P_eje_visc).toFixed(1));
+        }
+
+        html.push('<path d="' + dVisc.join(" ") + '" fill="none" stroke="#a78bfa" stroke-width="2.8"/>');
+        html.push('<path d="' + dPow.join(" ") + '" fill="none" stroke="#10b981" stroke-width="2.2" stroke-dasharray="5,3"/>');
+
+        // Línea vertical del punto actual T
+        var xCurT = mapXT(s.temp);
+        html.push('<line x1="' + xCurT + '" y1="' + yT + '" x2="' + xCurT + '" y2="' + yB + '" stroke="#06b6d4" stroke-width="1.8" stroke-dasharray="4,3"/>');
+        html.push('<circle cx="' + xCurT + '" cy="' + mapYVisc(s.visc) + '" r="6" fill="#a78bfa" stroke="#fff" stroke-width="1.5"/>');
+        html.push('<circle cx="' + xCurT + '" cy="' + mapYPow(res.P_eje_visc) + '" r="5.5" fill="#10b981" stroke="#fff" stroke-width="1.5"/>');
+
+        html.push('<text x="' + (xL + 15) + '" y="' + (yT + 20) + '" fill="#a78bfa" font-size="11" font-weight="bold">● Curva Viscosidad Cinemática ν(T) [cSt]</text>');
+        html.push('<text x="' + (xL + 15) + '" y="' + (yT + 38) + '" fill="#10b981" font-size="11" font-weight="bold">--- Curva Potencia Absorvida al Eje P(T) [kW]</text>');
+
+        svg.innerHTML = html.join("");
+      }
+
+      // ========================================================================
+      // 6. ACTUALIZACIÓN DE INTERFAZ, DIAGNÓSTICOS Y TABLA RESUMEN
+      // ========================================================================
+      function updateAll() {
+        var res = computeHydraulicModel(state);
+
+        // Parámetro B
+        dom.valParamB.textContent = res.B.toFixed(2);
+
+        // KPIs
+        dom.kpiQ.textContent = res.Q_visc.toFixed(1) + " m³/h";
+        dom.kpiQBase.textContent = res.Q_agua.toFixed(0);
+        dom.badgeCQ.textContent = "C_Q = " + res.CQ.toFixed(3);
+
+        dom.kpiH.textContent = res.H_visc.toFixed(1) + " m";
+        dom.kpiPress.textContent = res.dP_visc_bar.toFixed(2) + " bar (" + res.dP_visc_psi.toFixed(1) + " psi)";
+        dom.badgeCH.textContent = "C_H = " + res.CH_10.toFixed(3);
+
+        dom.kpiEff.textContent = res.eff_visc_pct.toFixed(1) + " %";
+        dom.kpiEffBase.textContent = res.eff_agua_pct.toFixed(1);
+        dom.badgeCEff.textContent = "C_η = " + res.CEff.toFixed(3);
+
+        dom.kpiPow.textContent = res.P_eje_visc.toFixed(2) + " kW";
+        dom.kpiHP.textContent = res.P_eje_visc_HP.toFixed(1) + " HP";
+        var sign = res.powVariationPct >= 0 ? "+" : "";
+        dom.badgePowDiff.textContent = sign + res.powVariationPct.toFixed(1) + "% vs Agua";
+
+        // Textos explicativos Pantalla 1
+        dom.step1.textContent = "Se ingresa por Q_BEP = " + state.Q + " m³/h en el eje inferior y se proyecta verticalmente.";
+        dom.step2.textContent = "Se intercepta la diagonal de altura H = " + state.H + " m y se gira 90° horizontalmente.";
+        dom.step3.textContent = "Se cruza la viscosidad ν = " + state.visc.toFixed(1) + " cSt (a " + state.temp + " °C) y se sube al panel superior.";
+        dom.step4.textContent = "Índice B = " + res.B.toFixed(2) + " → C_Q = " + res.CQ.toFixed(2) + ", C_H = " + res.CH_10.toFixed(2) + ", C_η = " + res.CEff.toFixed(2) + ".";
+
+        // Tabla resumen
+        var rows = [
+          ["Caudal de operación (Q)", res.Q_agua.toFixed(1) + " m³/h", res.Q_visc.toFixed(1) + " m³/h", ((res.CQ - 1) * 100).toFixed(1) + "%"],
+          ["Altura diferencial (H)", res.H_agua.toFixed(1) + " m", res.H_visc.toFixed(1) + " m", ((res.CH_10 - 1) * 100).toFixed(1) + "%"],
+          ["Presión diferencial (ΔP)", res.dP_agua_bar.toFixed(2) + " bar", res.dP_visc_bar.toFixed(2) + " bar", (((res.dP_visc_bar / res.dP_agua_bar) - 1) * 100).toFixed(1) + "%"],
+          ["Eficiencia hidráulica (η)", res.eff_agua_pct.toFixed(1) + " %", res.eff_visc_pct.toFixed(1) + " %", ((res.CEff - 1) * 100).toFixed(1) + "%"],
+          ["Potencia al eje (P_eje)", res.P_eje_agua.toFixed(2) + " kW", res.P_eje_visc.toFixed(2) + " kW", sign + res.powVariationPct.toFixed(1) + "%"]
+        ];
+        dom.tableBody.innerHTML = rows.map(function (r) {
+          return "<tr><td>" + r[0] + "</td><td>" + r[1] + "</td><td><b>" + r[2] + "</b></td><td>" + r[3] + "</td></tr>";
+        }).join("");
+
+        // Diagnóstico de Ingeniería
+        var alerts = [];
+        if (state.visc <= 20) {
+          alerts.push({
+            cls: "alert-ok",
+            icon: "✓",
+            text: "Régimen de baja viscosidad (" + state.visc.toFixed(1) + " cSt): La bomba centrífuga opera muy cerca de su curva nominal de agua sin penalización severa."
+          });
+        } else if (state.visc <= 200) {
+          alerts.push({
+            cls: "alert-warn",
+            icon: "⚠",
+            text: "Viscosidad moderada (" + state.visc.toFixed(1) + " cSt): La eficiencia cae de " + state.eff + "% a " + res.eff_visc_pct.toFixed(1) + "%. Verifique que el motor eléctrico soporte " + res.P_eje_visc.toFixed(1) + " kW."
+          });
+        } else {
+          alerts.push({
+            cls: "alert-crit",
+            icon: "✕",
+            text: "Alta viscosidad (" + state.visc.toFixed(1) + " cSt > 200 cSt): Eficiencia degradada a " + res.eff_visc_pct.toFixed(1) + "%. Se recomienda precalentar el fluido o seleccionar una bomba de desplazamiento positivo (tornillo/engranajes)."
+          });
+        }
+
+        if (res.powVariationPct > 15) {
+          alerts.push({
+            cls: "alert-crit",
+            icon: "⚡",
+            text: "Alerta de Sobrecarga Térmica/Eléctrica: La potencia requerida aumentó +" + res.powVariationPct.toFixed(1) + "% respecto al agua debido al frenado viscoso y gravedad específica (SG = " + state.sg + ")."
+          });
+        }
+
+        if (state.temp >= 95) {
+          alerts.push({
+            cls: "alert-warn",
+            icon: "🌡",
+            text: "Temperatura elevada (" + state.temp + " °C): Verifique la presión de vapor del líquido y asegure margen suficiente de NPSH disponible para evitar cavitación."
+          });
+        }
+
+        if (res.B > 40) {
+          alerts.push({
+            cls: "alert-crit",
+            icon: "📐",
+            text: "Fuera de rango estándar ANSI/HI 9.6.7 (B = " + res.B.toFixed(1) + " > 40): Los factores mostrados son extrapolaciones límite."
+          });
+        }
+
+        dom.diagList.innerHTML = alerts.map(function (a) {
+          return '<div class="alert-item ' + a.cls + '"><b>' + a.icon + '</b><span>' + a.text + '</span></div>';
+        }).join("");
+
+        // Renderizar los 3 gráficos SVG
+        renderNomographSVG(state, res);
+        renderCharacteristicCurvesSVG(state, res);
+        renderThermalSVG(state, res);
+      }
+
+      // ========================================================================
+      // 7. VINCULACIÓN DE EVENTOS Y PERSISTENCIA EN LOCALSTORAGE
+      // ========================================================================
+      function syncInputsFromState() {
+        dom.preset.value = state.preset;
+        dom.inQ.value = state.Q;
+        dom.rngQ.value = state.Q;
+        dom.inH.value = state.H;
+        dom.rngH.value = state.H;
+        dom.inEff.value = state.eff;
+        dom.rngEff.value = state.eff;
+        dom.inTemp.value = state.temp;
+        dom.rngTemp.value = state.temp;
+        dom.inVisc.value = state.visc;
+        dom.rngVisc.value = Math.min(1000, state.visc);
+        dom.inSG.value = state.sg;
+        dom.rngSG.value = state.sg;
+        dom.lblRpm.textContent = state.rpm + " RPM";
+
+        document.querySelectorAll(".rpm-btn").forEach(function (b) {
+          b.classList.toggle("active", parseInt(b.getAttribute("data-rpm"), 10) === state.rpm);
+        });
+      }
+
+      function bindPair(numEl, rngEl, key, isManualFluidProp) {
+        function handler(val) {
+          var v = parseFloat(val);
+          if (isNaN(v)) return;
+          state[key] = v;
+          numEl.value = v;
+          rngEl.value = v;
+
+          if (key === "temp" && FLUID_PRESETS[state.preset]) {
+            var p = FLUID_PRESETS[state.preset];
+            state.visc = +p.calcVisc(v).toFixed(2);
+            state.sg = p.calcSG(v);
+            dom.inVisc.value = state.visc;
+            dom.rngVisc.value = Math.min(1000, state.visc);
+            dom.inSG.value = state.sg;
+            dom.rngSG.value = state.sg;
+          } else if (isManualFluidProp) {
+            state.preset = "custom";
+            dom.preset.value = "custom";
+          }
+          updateAll();
+        }
+        numEl.addEventListener("input", function () { handler(this.value); });
+        rngEl.addEventListener("input", function () { handler(this.value); });
+      }
+
+      bindPair(dom.inQ, dom.rngQ, "Q", false);
+      bindPair(dom.inH, dom.rngH, "H", false);
+      bindPair(dom.inEff, dom.rngEff, "eff", false);
+      bindPair(dom.inTemp, dom.rngTemp, "temp", false);
+      bindPair(dom.inVisc, dom.rngVisc, "visc", true);
+      bindPair(dom.inSG, dom.rngSG, "sg", true);
+
+      // Selector de fluido tipo
+      dom.preset.addEventListener("change", function () {
+        var key = this.value;
+        state.preset = key;
+        if (FLUID_PRESETS[key]) {
+          var p = FLUID_PRESETS[key];
+          state.temp = p.temp;
+          state.visc = p.visc;
+          state.sg = p.sg;
+          syncInputsFromState();
+        }
+        updateAll();
+      });
+
+      // Botones RPM
+      document.querySelectorAll(".rpm-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          state.rpm = parseInt(this.getAttribute("data-rpm"), 10);
+          syncInputsFromState();
+          updateAll();
+        });
+      });
+
+      // Navegación por pestañas (Pantallas 1, 2 y 3)
+      document.querySelectorAll(".tab-btn").forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          var targetId = this.getAttribute("data-tab");
+          document.querySelectorAll(".tab-btn").forEach(function (t) { t.classList.remove("active"); });
+          document.querySelectorAll(".screen-content").forEach(function (sc) { sc.classList.remove("active"); });
+          this.classList.add("active");
+          document.getElementById(targetId).classList.add("active");
+        });
+      });
+
+      // Guardar y restaurar en localStorage
+      var STORAGE_KEY = "ansi_hi_967_pump_state_v1";
+      document.getElementById("btnSave").addEventListener("click", function () {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          showToast("Punto de operación guardado en memoria local.");
+        } catch (e) {
+          showToast("No se pudo acceder a localStorage en este modo.");
+        }
+      });
+
+      document.getElementById("btnReset").addEventListener("click", function () {
+        state = { preset: "crude28", Q: 120, H: 65, eff: 76, rpm: 3550, temp: 40, visc: 35, sg: 0.88 };
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+        syncInputsFromState();
+        updateAll();
+        showToast("Parámetros restaurados a valores iniciales.");
+      });
+
+      // Inicialización al cargar
+      try {
+        var saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          var parsed = JSON.parse(saved);
+          for (var k in parsed) {
+            if (Object.prototype.hasOwnProperty.call(state, k)) {
+              state[k] = parsed[k];
+            }
+          }
+        }
+      } catch (e) {}
+
+      syncInputsFromState();
+      updateAll();
+    })();
+  </script>
+</body>
+</html>
